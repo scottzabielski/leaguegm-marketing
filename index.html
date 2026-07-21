@@ -117,6 +117,15 @@
     section{padding:56px 0;}
     .pricing-card{padding:32px 24px;}
   }
+  /* Hero logo: scale the composite (trophy + wordmark + eyebrow) to fit narrow
+     screens without disturbing its internal alignment. The pieces are absolutely
+     positioned at fixed px offsets, so a single fluid transform:scale keeps them
+     perfectly aligned while shrinking the whole lockup. Clamped so it never grows
+     past its design size (1) or below a legible minimum (.62). Left transform-
+     origin keeps it flush with the hero copy below. */
+  @media (max-width:560px){
+    .hero-logo-wrap{transform:scale(clamp(.62,calc(100vw / 560),1));transform-origin:left center;}
+  }
 
   /* ---------- Motion ---------- */
   html{scroll-behavior:smooth;}
