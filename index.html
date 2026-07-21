@@ -676,7 +676,7 @@
     var aysoState = isAyso && document.getElementById('elig-ayso-state') ? document.getElementById('elig-ayso-state').value.trim() : '';
     var payload={
       affiliation: state.affiliation,
-      league_name: (isAyso ? (aysoRegion ? ('AYSO '+aysoRegion) : 'AYSO Region') : (q.value.trim() || state.name || '')),
+      league_name: (isAyso ? (aysoRegion ? ('AYSO '+aysoRegion) : 'AYSO Region') : (state.name || q.value.trim() || '')),
       state: (isAyso ? aysoState : st.value.trim()),
       city: (isAyso ? aysoCity : ''),
       ayso_region: aysoRegion,
