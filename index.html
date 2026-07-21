@@ -118,15 +118,23 @@
     .pricing-card{padding:32px 24px;}
   }
   /* Hero logo: the composite (trophy + wordmark + eyebrow) is absolutely
-     positioned at fixed px offsets and defaults to 120px tall, which overflows
-     narrow phones. Scale the whole lockup down at mobile breakpoints. transform
-     with a plain scale factor keeps every internal offset perfectly aligned; the
-     matching wrap height reclaims the vertical whitespace the transform leaves. */
+     positioned at fixed px offsets (~430px wide unscaled) that overflow narrow
+     phones. transform:scale can't fix it — the absolutely-positioned wordmark's
+     left:143px leaks past the viewport regardless of scale. Instead scale each
+     piece's REAL geometry (trophy height, wordmark/eyebrow left+top+height) so the
+     layout box genuinely shrinks and nothing extends off-screen. overflow:hidden on
+     the wrap is a belt-and-suspenders guard against any sub-pixel spill. */
   @media (max-width:560px){
-    .hero-logo-wrap{transform:scale(.8);transform-origin:left top;height:96px;}
+    .hero-logo-wrap{height:74px;overflow:hidden;}
+    .hero-trophy{height:74px;}
+    .hero-wordmark{left:88px;top:14px;height:30px;}
+    .hero .eyebrow{left:88px;font-size:11px;padding:3px 10px;}
   }
-  @media (max-width:400px){
-    .hero-logo-wrap{transform:scale(.62);transform-origin:left top;height:74px;}
+  @media (max-width:380px){
+    .hero-logo-wrap{height:60px;}
+    .hero-trophy{height:60px;}
+    .hero-wordmark{left:72px;top:11px;height:24px;}
+    .hero .eyebrow{left:72px;font-size:10px;padding:2px 8px;}
   }
 
   /* ---------- Motion ---------- */
