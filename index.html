@@ -484,7 +484,7 @@
       <div class="elig-step" data-step="2">
         <div id="elig-covered-box"></div>
         <div id="elig-search-box">
-          <p class="elig-q-label">Find your league in the IRS nonprofit database</p>
+          <p class="elig-q-label"><span id="elig-q-label-text">Find your organization so we can pull the right records</span></p>
           <div class="elig-row">
             <div class="elig-field" style="flex:2;">
               <label for="elig-q">League / organization name</label>
@@ -569,17 +569,23 @@
     c.addEventListener('click', function(){
       state.affiliation = c.getAttribute('data-aff');
       coveredBox.innerHTML=''; picked.style.display='none';
+      if (results){ results.style.display='none'; results.innerHTML=''; }
+      var nameLabel = document.getElementById('elig-q-label-text');
       if (state.affiliation==='ayso'){
-        // short-circuit: covered under AYSO National, no name search
-        state.covered='national';
+        // AYSO regions aren't in the IRS list under their own name — skip the
+        // picker. Collect region name/number + state; explain WHY (not a verdict).
+        state.ayso = true; state.notFound=false; state.ein=null; state.name=null;
         searchBox.style.display='none';
-        coveredBox.innerHTML='<div class="elig-covered"><b>You’re covered.</b> AYSO regions qualify under AYSO National’s 501(c)(3) (EIN 95-6205398) — no separate paperwork needed.</div>';
+        coveredBox.innerHTML='<div class="elig-covered">Because AYSO regions are organized under AYSO National, we’ll take care of the nonprofit lookup on our end. Just tell us your region and leave your details, and we’ll be in touch.</div>'+
+          '<div class="elig-field"><label for="elig-ayso-region">Region name or number</label><input id="elig-ayso-region" type="text" placeholder="e.g. Region 42"></div>'+
+          '<div class="elig-row"><div class="elig-field"><label for="elig-ayso-city">City</label><input id="elig-ayso-city" type="text" placeholder="Riverside"></div>'+
+          '<div class="elig-field"><label for="elig-ayso-state">State</label><input id="elig-ayso-state" type="text" maxlength="2" placeholder="CA" style="text-transform:uppercase;"></div></div>';
       } else {
-        state.covered='none';
+        // Little League / PONY / Independent / Not sure → identify your org in
+        // the IRS records. Framed as identification, never a verdict.
+        state.ayso = false;
         searchBox.style.display='block';
-        if (state.affiliation==='little_league'){
-          coveredBox.innerHTML='<div class="elig-covered">Chartered Little Leagues are covered under the Little League group exemption. Find yours below — or continue and we’ll confirm.</div>';
-        }
+        if (nameLabel) nameLabel.textContent = 'Find your organization so we can pull the right records';
       }
       showStep(2);
       if (state.affiliation!=='ayso' && q) setTimeout(function(){ q.focus(); }, 60);
@@ -593,11 +599,13 @@
     else {
       list.forEach(function(o){
         var el=document.createElement('button'); el.type='button'; el.className='elig-hit';
-        el.innerHTML='<span class="elig-hit-name">'+esc(o.name)+'</span><span class="elig-hit-meta">'+(o.city?esc(o.city)+', ':'')+esc(o.state||'')+(o.is501c3?' · <b class="elig-yes">501(c)(3)</b>':(o.subsection?(' · 501(c)('+o.subsection+')'):' · status unknown'))+'</span>';
+        // Identification only — no eligibility verdict on the row. Show name +
+        // city/state (and EIN, which helps the lead recognize their own org).
+        el.innerHTML='<span class="elig-hit-name">'+esc(o.name)+'</span><span class="elig-hit-meta">'+(o.city?esc(o.city)+', ':'')+esc(o.state||'')+(o.ein?' · EIN '+esc(o.ein):'')+'</span>';
         el.addEventListener('click', function(){
           state.ein=o.ein; state.name=o.name; state.sub=o.subsection; state.notFound=false;
           picked.style.display='block';
-          picked.innerHTML='<b>Selected:</b> '+esc(o.name)+(o.is501c3?' <span class="elig-yes">✓ 501(c)(3)</span>':'');
+          picked.innerHTML='<b>Selected:</b> '+esc(o.name);
           Array.prototype.forEach.call(results.querySelectorAll('.elig-hit'), function(h){ h.classList.remove('sel'); }); el.classList.add('sel');
         });
         results.appendChild(el);
@@ -633,10 +641,17 @@
     e.preventDefault();
     var btn=document.getElementById('elig-submit'); btn.disabled=true; btn.textContent='Submitting…';
     var err=document.getElementById('elig-error'); err.style.display='none';
+    // AYSO collects region name/number + city/state instead of an IRS pick.
+    var isAyso = state.affiliation==='ayso';
+    var aysoRegion = isAyso && document.getElementById('elig-ayso-region') ? document.getElementById('elig-ayso-region').value.trim() : '';
+    var aysoCity = isAyso && document.getElementById('elig-ayso-city') ? document.getElementById('elig-ayso-city').value.trim() : '';
+    var aysoState = isAyso && document.getElementById('elig-ayso-state') ? document.getElementById('elig-ayso-state').value.trim() : '';
     var payload={
       affiliation: state.affiliation,
-      league_name: (q.value.trim() || state.name || ''),
-      state: st.value.trim(),
+      league_name: (isAyso ? (aysoRegion ? ('AYSO '+aysoRegion) : 'AYSO Region') : (q.value.trim() || state.name || '')),
+      state: (isAyso ? aysoState : st.value.trim()),
+      city: (isAyso ? aysoCity : ''),
+      ayso_region: aysoRegion,
       contact_name: document.getElementById('elig-name').value.trim(),
       email: document.getElementById('elig-email').value.trim(),
       phone: document.getElementById('elig-phone').value.trim(),
@@ -650,8 +665,9 @@
       .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
       .then(function(res){
         if(!res.ok||res.d.error){ throw new Error(res.d.error||'submit failed'); }
-        var isElig=res.d.eligibility==='eligible'||res.d.eligibility==='provisional';
-        body.innerHTML='<div class="elig-done"><div class="elig-done-icon">✓</div><h3>'+(isElig?'You’re eligible!':'Thank you!')+'</h3><p>'+esc(res.d.message||'Scott will follow up shortly.')+'</p><button type="button" class="elig-btn elig-btn-primary" id="elig-done-close">Close</button></div>';
+        // No verdict is ever shown — one neutral confirmation regardless of the
+        // server-side eligibility determination.
+        body.innerHTML='<div class="elig-done"><div class="elig-done-icon">✓</div><h3>Thanks!</h3><p>Our team will confirm your league’s eligibility for the free Google Workspace program and get back to you shortly.</p><button type="button" class="elig-btn elig-btn-primary" id="elig-done-close">Close</button></div>';
         document.getElementById('elig-done-close').addEventListener('click', close);
       })
       .catch(function(){ btn.disabled=false; btn.textContent='Check Eligibility'; err.style.display='block'; err.textContent='Something went wrong. Please email scott@leaguegm.io directly.'; });
