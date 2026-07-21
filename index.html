@@ -448,6 +448,10 @@
   .elig-notfound{color:var(--slate);font-style:italic;font-size:13px;}
   .elig-empty{padding:12px 13px;font-size:13px;color:var(--slate);}
   #elig-picked{display:none;background:rgba(26,138,74,.08);border:1px solid rgba(26,138,74,.25);border-radius:9px;padding:10px 12px;font-size:13px;color:var(--ink);margin-bottom:14px;}
+  #elig-summary{display:none;background:var(--mist);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--ink);margin-bottom:16px;line-height:1.45;}
+  #elig-summary .elig-summary-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);display:block;margin-bottom:2px;}
+  #elig-summary b{color:var(--ink);}
+  #elig-summary .elig-summary-ein{color:var(--slate);}
   .elig-covered{background:rgba(26,138,74,.08);border:1px solid rgba(26,138,74,.25);border-radius:10px;padding:14px 15px;font-size:14px;color:var(--ink);margin-bottom:16px;line-height:1.5;}
   .elig-covered b{color:#1a8a4a;}
   .elig-actions{display:flex;gap:10px;margin-top:6px;}
@@ -505,6 +509,7 @@
       </div>
       <!-- Step 3: contact -->
       <div class="elig-step" data-step="3">
+        <div id="elig-summary"></div>
         <form id="elig-form" novalidate>
           <div class="elig-field">
             <label for="elig-name">Your name</label>
@@ -631,8 +636,31 @@
   if (q) q.addEventListener('input', function(){ clearTimeout(searchT); searchT=setTimeout(doSearch,350); });
   if (st) st.addEventListener('change', doSearch);
 
-  // Step 2 → continue to contact
+  // Step 2 → continue to contact. Carry the org/region the lead identified into
+  // the contact screen so they can see it confirmed before entering their details.
+  function buildSummary(){
+    var el = document.getElementById('elig-summary');
+    if (!el) return;
+    var html = '';
+    if (state.affiliation==='ayso'){
+      var region = document.getElementById('elig-ayso-region');
+      var city = document.getElementById('elig-ayso-city');
+      var astate = document.getElementById('elig-ayso-state');
+      var rv = region ? region.value.trim() : '';
+      var loc = [city?city.value.trim():'', astate?astate.value.trim().toUpperCase():''].filter(Boolean).join(', ');
+      html = '<span class="elig-summary-label">Your league</span><b>'+esc(rv?('AYSO '+rv):'AYSO region')+'</b>'+(loc?' · '+esc(loc):'');
+    } else if (state.notFound){
+      html = '<span class="elig-summary-label">Your league</span><b>'+esc(q.value.trim()||'Your organization')+'</b>'+(st.value.trim()?' · '+esc(st.value.trim().toUpperCase()):'')+'<br><span class="elig-summary-ein">We’ll match your nonprofit record on our end.</span>';
+    } else if (state.name){
+      html = '<span class="elig-summary-label">Your organization</span><b>'+esc(state.name)+'</b>'+(state.ein?'<br><span class="elig-summary-ein">EIN '+esc(state.ein)+'</span>':'');
+    } else {
+      html = '<span class="elig-summary-label">Your league</span><b>'+esc(q.value.trim()||'Your organization')+'</b>'+(st.value.trim()?' · '+esc(st.value.trim().toUpperCase()):'');
+    }
+    el.innerHTML = html;
+    el.style.display = 'block';
+  }
   document.getElementById('elig-to-contact').addEventListener('click', function(){
+    buildSummary();
     showStep(3); setTimeout(function(){ document.getElementById('elig-name').focus(); }, 60);
   });
 
