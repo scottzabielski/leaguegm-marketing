@@ -803,5 +803,27 @@
   });
 })();
 </script>
+
+<script>
+/* Page-view beacon (Scott 2026-09-22): logs the visit to the Front Office so a
+   visit arriving minutes after an email open is visible. No cookies, no IDs —
+   the server stores a coarse network prefix and a daily-salted hash. */
+(function(){
+  try{
+    var p = new URLSearchParams(location.search), utm = {};
+    ['utm_source','utm_medium','utm_campaign','utm_content'].forEach(function(k){ if(p.get(k)) utm[k]=p.get(k); });
+    fetch('https://frontoffice.leaguegm.io/api/visit', {
+      method:'POST', headers:{'Content-Type':'application/json'}, keepalive:true,
+      body: JSON.stringify({
+        path: location.pathname + location.hash,
+        referrer: document.referrer || null,
+        utm: Object.keys(utm).length ? utm : null,
+        screen: (window.screen && screen.width) ? (screen.width+'x'+screen.height) : null,
+        tz: (Intl.DateTimeFormat().resolvedOptions().timeZone) || null
+      })
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
