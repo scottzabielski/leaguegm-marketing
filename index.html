@@ -728,15 +728,60 @@
   .contact-note{font-size:12px;color:#8a94a6;margin-top:10px;}
   .contact-err{color:#c0392b;font-size:13px;margin-top:10px;}
   .contact-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+  /* Book a call (Scott 2026-11-21) */
+  .contact-tabs{display:flex;gap:6px;padding:0 24px;margin-top:4px;}
+  .contact-tab{flex:1;padding:10px 12px;border:1px solid #d9dce3;border-radius:10px;background:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;color:#5b6472;}
+  .contact-tab.on{border-color:var(--gold,#c9a227);background:rgba(201,162,39,.10);color:#1f2937;}
+  .book-days{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;margin-top:8px;}
+  .book-day{flex:0 0 auto;padding:8px 10px;border:1px solid #d9dce3;border-radius:10px;background:#fff;font:inherit;font-size:13px;cursor:pointer;text-align:center;line-height:1.25;}
+  .book-day.on{border-color:var(--gold,#c9a227);background:rgba(201,162,39,.10);font-weight:600;}
+  .book-times{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:6px;max-height:210px;overflow-y:auto;margin-top:6px;}
+  .book-time{padding:8px 4px;border:1px solid #d9dce3;border-radius:8px;background:#fff;font:inherit;font-size:13px;cursor:pointer;}
+  .book-time.on{border-color:var(--gold,#c9a227);background:var(--gold,#c9a227);color:#fff;font-weight:600;}
+  .book-tz{font-size:12px;color:#8a94a6;margin-top:6px;}
+  .book-picked{font-size:14px;margin:14px 0 2px;}
 </style>
 <div id="contact-overlay" role="dialog" aria-modal="true" aria-labelledby="contact-title">
   <div class="contact-modal">
     <div class="contact-head">
       <button id="contact-close" aria-label="Close">&times;</button>
       <h2 id="contact-title">Contact Us</h2>
-      <p>Questions about the setup, pricing, or whether your league qualifies? Send a note and Scott will get back to you.</p>
+      <p>Questions about the setup, pricing, or whether your league qualifies? Book a quick call with Scott, or send a note.</p>
     </div>
-    <div class="contact-body" id="contact-body">
+    <div class="contact-tabs" role="tablist">
+      <button type="button" class="contact-tab on" id="tab-call" role="tab" aria-selected="true">Book a 15-min call</button>
+      <button type="button" class="contact-tab" id="tab-email" role="tab" aria-selected="false">Send an email</button>
+    </div>
+    <div class="contact-body" id="book-body">
+      <div id="book-loading" style="font-size:14px;color:#5b6472;margin-top:14px">Finding open times…</div>
+      <div id="book-pick" style="display:none">
+        <div class="book-days" id="book-days"></div>
+        <div class="book-times" id="book-times"></div>
+        <div class="book-tz" id="book-tz"></div>
+      </div>
+      <form id="book-form" novalidate style="display:none">
+        <div class="book-picked" id="book-picked"></div>
+        <div class="contact-row">
+          <div><label for="b-name">Your name</label><input id="b-name" autocomplete="name" required></div>
+          <div><label for="b-phone">Phone (Scott will call you)</label><input id="b-phone" type="tel" autocomplete="tel" required></div>
+        </div>
+        <div class="contact-row">
+          <div><label for="b-email">Email (for the invite)</label><input id="b-email" type="email" autocomplete="email" required></div>
+          <div><label for="b-org">League or organization</label><input id="b-org" autocomplete="organization"></div>
+        </div>
+        <label for="b-note">Anything Scott should know? (optional)</label>
+        <textarea id="b-note" style="min-height:70px"></textarea>
+        <div class="contact-hp"><label>Leave this blank<input id="b-hp" tabindex="-1" autocomplete="off"></label></div>
+        <div class="contact-actions">
+          <button class="btn btn-lg" type="submit" id="b-submit">Book the call</button>
+          <button type="button" id="b-back" style="background:none;border:0;color:#5b6472;font:inherit;font-size:13px;cursor:pointer;text-decoration:underline">Pick another time</button>
+        </div>
+        <div id="b-error" class="contact-err" style="display:none"></div>
+        <div class="contact-note">You'll get a calendar invite from scott@leaguegm.io. We never share your details.</div>
+      </form>
+      <div id="book-none" class="contact-err" style="display:none;color:#5b6472"></div>
+    </div>
+    <div class="contact-body" id="contact-body" style="display:none">
       <form id="contact-form" novalidate>
         <div class="contact-row">
           <div><label for="c-name">Your name</label><input id="c-name" name="name" autocomplete="name" required></div>
@@ -768,12 +813,16 @@
   var statusEl = document.getElementById('c-status');
   var errEl = document.getElementById('c-error');
   var submit = document.getElementById('c-submit');
-  function open(e){ if(e) e.preventDefault(); overlay.classList.add('show'); document.body.style.overflow='hidden'; setTimeout(function(){ document.getElementById('c-name').focus(); }, 60); }
+  function open(e){ if(e) e.preventDefault(); overlay.classList.add('show'); document.body.style.overflow='hidden'; if(window.lgmBookOpen) window.lgmBookOpen(); }
   function close(){ overlay.classList.remove('show'); document.body.style.overflow=''; }
   Array.prototype.forEach.call(document.querySelectorAll('[data-contact]'), function(b){ b.addEventListener('click', open); });
   document.getElementById('contact-close').addEventListener('click', close);
   overlay.addEventListener('click', function(e){ if(e.target===overlay) close(); });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&overlay.classList.contains('show')) close(); });
+  /* Shareable booking link: leaguegm.io/#book (or #call) opens straight to the call picker. */
+  function fromHash(){ if(/^#(book|call)$/i.test(location.hash)) open(); }
+  window.addEventListener('hashchange', fromHash);
+  if (document.readyState === 'complete') fromHash(); else window.addEventListener('load', fromHash);
   form.addEventListener('submit', function(e){
     e.preventDefault();
     errEl.style.display='none';
@@ -804,6 +853,108 @@
       .catch(function(){
         errEl.textContent = 'Could not reach the server. Email scott@leaguegm.io directly and we will pick it up.';
         errEl.style.display='block'; submit.disabled=false; statusEl.textContent='';
+      });
+  });
+})();
+</script>
+
+<script>
+/* Book a 15-minute call (Scott 2026-11-21). Open times come from the Front
+   Office (all of Scott's calendars, his rules); only start times are sent. */
+(function(){
+  var API = 'https://frontoffice.leaguegm.io';
+  var tabCall = document.getElementById('tab-call'), tabEmail = document.getElementById('tab-email');
+  var bookBody = document.getElementById('book-body'), mailBody = document.getElementById('contact-body');
+  if (!tabCall) return;
+  var loading = document.getElementById('book-loading'), pick = document.getElementById('book-pick');
+  var daysEl = document.getElementById('book-days'), timesEl = document.getElementById('book-times');
+  var form = document.getElementById('book-form'), none = document.getElementById('book-none');
+  var errEl = document.getElementById('b-error'), submit = document.getElementById('b-submit');
+  var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Los_Angeles';
+  var slots = null, byDay = {}, dayKeys = [], chosenDay = null, chosen = null, loaded = false;
+  var esc = function(x){ return String(x).replace(/[&<>"]/g,''); };
+  var dayKey = function(iso){ return new Date(iso).toLocaleDateString('en-CA',{timeZone:tz}); };
+  var dayLabel = function(k){ var d=new Date(k+'T12:00:00'); return d.toLocaleDateString('en-US',{weekday:'short'})+'<br>'+d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  var timeLabel = function(iso){ return new Date(iso).toLocaleTimeString('en-US',{timeZone:tz,hour:'numeric',minute:'2-digit'}); };
+  var whenLabel = function(iso){ return new Date(iso).toLocaleString('en-US',{timeZone:tz,weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}); };
+
+  function show(which){
+    var call = which === 'call';
+    tabCall.classList.toggle('on', call); tabEmail.classList.toggle('on', !call);
+    tabCall.setAttribute('aria-selected', call); tabEmail.setAttribute('aria-selected', !call);
+    bookBody.style.display = call ? '' : 'none'; mailBody.style.display = call ? 'none' : '';
+    if (!call) setTimeout(function(){ var n=document.getElementById('c-name'); if(n) n.focus(); }, 30);
+    else if (!loaded) load();
+  }
+  tabCall.addEventListener('click', function(){ show('call'); });
+  tabEmail.addEventListener('click', function(){ show('email'); });
+  window.lgmBookOpen = function(){ show('call'); };
+
+  function noTimes(msg){
+    loading.style.display='none'; pick.style.display='none'; form.style.display='none';
+    none.innerHTML = esc(msg) + ' <a href="#" id="book-to-email">Send an email instead</a>.';
+    none.style.display='block';
+    document.getElementById('book-to-email').addEventListener('click', function(e){ e.preventDefault(); show('email'); });
+  }
+  function load(){
+    loaded = true; loading.style.display=''; pick.style.display='none'; none.style.display='none'; form.style.display='none';
+    fetch(API+'/api/book/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) { loaded = false; return noTimes((j && j.error) || 'Booking isn’t available right now.'); }
+        slots = j.slots || []; byDay = {}; dayKeys = [];
+        slots.forEach(function(s){ var k=dayKey(s); if(!byDay[k]){ byDay[k]=[]; dayKeys.push(k); } byDay[k].push(s); });
+        if (!dayKeys.length) return noTimes('There are no open times in the next few weeks.');
+        loading.style.display='none'; pick.style.display='';
+        document.getElementById('book-tz').textContent = 'Times are in your time zone ('+tz.replace(/_/g,' ')+').';
+        renderDays(dayKeys[0]);
+      })
+      .catch(function(){ loaded = false; noTimes('Could not load open times.'); });
+  }
+  function renderDays(sel){
+    chosenDay = sel;
+    daysEl.innerHTML = dayKeys.map(function(k){ return '<button type="button" class="book-day'+(k===sel?' on':'')+'" data-k="'+k+'">'+dayLabel(k)+'</button>'; }).join('');
+    Array.prototype.forEach.call(daysEl.children, function(b){ b.addEventListener('click', function(){ renderDays(b.getAttribute('data-k')); }); });
+    timesEl.innerHTML = byDay[sel].map(function(s){ return '<button type="button" class="book-time" data-s="'+s+'">'+timeLabel(s)+'</button>'; }).join('');
+    Array.prototype.forEach.call(timesEl.children, function(b){ b.addEventListener('click', function(){ choose(b.getAttribute('data-s')); }); });
+  }
+  function choose(s){
+    chosen = s; pick.style.display='none'; form.style.display=''; errEl.style.display='none';
+    document.getElementById('book-picked').innerHTML = '<strong>'+esc(whenLabel(s))+'</strong> · 15 minutes by phone';
+    setTimeout(function(){ document.getElementById('b-name').focus(); }, 30);
+  }
+  document.getElementById('b-back').addEventListener('click', function(){ form.style.display='none'; pick.style.display=''; });
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault(); errEl.style.display='none';
+    var p = {
+      start: chosen,
+      name: document.getElementById('b-name').value.trim(),
+      phone: document.getElementById('b-phone').value.trim(),
+      email: document.getElementById('b-email').value.trim(),
+      org: document.getElementById('b-org').value.trim(),
+      note: document.getElementById('b-note').value.trim(),
+      tz: tz,
+      website: document.getElementById('b-hp').value
+    };
+    if (!p.name || !p.phone || !p.email) { errEl.textContent='Please add your name, phone and email.'; errEl.style.display='block'; return; }
+    submit.disabled = true; submit.textContent = 'Booking…';
+    fetch(API+'/api/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+      .then(function(r){ return r.json().catch(function(){ return {ok:false}; }); })
+      .then(function(j){
+        if (j && j.ok) {
+          bookBody.innerHTML = '<p style="font-size:16px;margin:14px 0 18px">You’re booked for <strong>'+esc(whenLabel(chosen))+
+            '</strong>. Scott will call you at <strong>'+esc(p.phone)+'</strong>. A calendar invite is on its way to <strong>'+esc(p.email)+'</strong>, with a link to reschedule or cancel.</p>';
+          return;
+        }
+        submit.disabled = false; submit.textContent = 'Book the call';
+        errEl.textContent = (j && j.error) || 'Something went wrong. Email scott@leaguegm.io and we will set up a time.';
+        errEl.style.display='block';
+        if (j && j.taken) { loaded = false; setTimeout(load, 1200); }
+      })
+      .catch(function(){
+        submit.disabled = false; submit.textContent = 'Book the call';
+        errEl.textContent = 'Could not reach the server. Email scott@leaguegm.io and we will set up a time.'; errEl.style.display='block';
       });
   });
 })();
